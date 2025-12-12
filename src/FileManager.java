@@ -1,5 +1,4 @@
 import java.io.*; 
-import java.nio.file.*;
 import java.time.LocalDateTime;
 import java.time.format.DateTimeFormatter;
 import java.util.ArrayList; 
@@ -64,7 +63,7 @@ public class FileManager {
                     eventList.add(newEvent);
                 }
             }
-        } catch (Exception e) {
+        } catch (Exception e) {// Catch any error that occurs during reading/parsing
             System.out.println("Error loading events: " + e.getMessage());
         }
         
@@ -83,11 +82,11 @@ public class FileManager {
                 // Step A: Combine all data into one comma-separated string
                 // Example: "101,Study,Math revision,2025-10-01T09:00,2025-10-01T11:00"
                 String csvLine = String.format("%d,%s,%s,%s,%s",
-                    event.getEventId(),
+                    event.getId(),
                     event.getTitle(),
                     event.getDescription(),
-                    event.getStartDateTime().format(DATE_FORMAT),
-                    event.getEndDateTime().format(DATE_FORMAT)
+                    event.getStart().format(DATE_FORMAT),
+                    event.getEnd().format(DATE_FORMAT)
                 );
                 
                 // Step B: Write it to the file
