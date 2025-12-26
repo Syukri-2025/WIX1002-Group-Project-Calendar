@@ -1,4 +1,8 @@
 import javax.swing.*;
+import java.awt.*;
+import java.time.YearMonth;
+import java.time.LocalDate;
+
 
 public class CalendarView {
     private SchedulerApp app = new SchedulerApp();
@@ -13,7 +17,11 @@ public class CalendarView {
         addButton.addActionListener(adding -> showAddEventForm());
         updateButton.addActionListener(adding -> showUpdateEventForm());
         deleteButton.addActionListener(adding -> showDeleteEventForm());
-        viewButton.addActionListener(adding -> showEvents());
+        viewButton.addActionListener(adding -> {
+                LocalDate today = LocalDate.now();
+                showCalendar(today.getYear(), today.getMonthValue());
+            });
+
 
         JPanel panel = new JPanel();
         panel.add(addButton);
@@ -46,12 +54,13 @@ public class CalendarView {
     }
 
     private void showEvents() {
-        StringBuilder sb = new StringBuilder("Events:\n");
-        for (Event e : app.getEvents()) {
-            sb.append("- ").append(e).append("\n");
-        }
-        JOptionPane.showMessageDialog(null, sb.toString());
+    StringBuilder sb = new StringBuilder("Events:\n");
+    for (Event adding : app.getEvents()) {
+        // You must pass the event information into the append method
+        sb.append("- ").append(adding.getTitle()).append(" (").append(adding.getDate()).append(")\n");
     }
+    JOptionPane.showMessageDialog(null, sb.toString());
+}
 
     public void showCalendar(int year, int month) { 
         JFrame frame = new JFrame("Calendar " + month + "/" + year);
@@ -85,14 +94,20 @@ public class CalendarView {
 
                     // Highlight if event exists on this day 
                 
-                            for (Event e : app.getEvents()) { 
-                                if (e.getDate().startsWith(String.format("%02d/%02d/%d", day, month, year))) { 
-                                    lbl.setOpaque(true); 
-                                    lbl.setBackground(Color.YELLOW); 
-                                    lbl.setText(dayStr + " *"); // mark with * 
-                                    } 
-                                } 
-                                panel.add(lbl); 
+                            // Highlight if event exists on this day
+                                for (Event e : app.getEvents()) {
+                                    // Convert the date to a String so we can use startsWith
+                                    String eventDateStr = String.valueOf(e.getDate());
+                                    String targetDate = String.format("%02d/%02d/%0d", day, month, year);
+
+                                    if (eventDateStr.startsWith(targetDate)) {
+                                        lbl.setOpaque(true);
+                                        lbl.setBackground(Color.yellow); // Use lowercase if YELLOW fails
+                                        lbl.setText(dayStr + " *"); // mark with *
+                                    }
+                                }
+                                panel.add(lbl);
+                                
 
                             } 
                             frame.add(panel); 

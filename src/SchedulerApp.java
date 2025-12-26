@@ -1,5 +1,6 @@
 import java.util.ArrayList;
 
+
 public class SchedulerApp {
 
     //--> using the arraylist so that program can be 
@@ -13,7 +14,7 @@ public class SchedulerApp {
         events.add(adding); //kind of add the title and date the Event file has
     }
 
-    public findTitle(String title){
+    public Event findTitle(String title){
         
         for(Event adding : events ){
             if(adding.getTitle().equalsIgnoreCase(title))
@@ -25,7 +26,7 @@ public class SchedulerApp {
 
     public void updateEvent(String oldTitle, Event update){
         Event existing = findTitle(oldTitle);
-            if(existing =! null){
+            if(existing != null){
                 existing.setTitle(update.getTitle());
                 existing.setDate(update.getDate());
 
@@ -36,7 +37,7 @@ public class SchedulerApp {
     public void deleteEvent(String title){
         Event existing = findTitle(title);
 
-        if(existing =! null){
+        if(existing != null){
             events.remove(existing);
 
         }
@@ -46,6 +47,11 @@ public class SchedulerApp {
 public ArrayList<Event> getEvent(){
     return events;
 
+}
+
+public Event[] getEvents() {
+    // TODO Auto-generated method stub
+    throw new UnsupportedOperationException("Unimplemented method 'getEvents'");
 }
 
     
