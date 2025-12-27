@@ -1,23 +1,65 @@
 import java.time.LocalDateTime;
 
 public class Event {
+    private int id;
+    private String title;
+    private String description;
+    private LocalDateTime start;
+    private LocalDateTime end;
 
-    public Event(String title, String date) {
+    // Constructor
+    public Event(int id, String title, String description, LocalDateTime start, LocalDateTime end) {
+        this.id = id;
+        this.title = title;
+        this.description = description;
+        this.start = start;
+        this.end = end;
+    }
+
+    public Event(String title2, String date) {
         //TODO Auto-generated constructor stub
     }
 
-    public Event(int id, String title, String description, LocalDateTime start, LocalDateTime end) {
-        //TODO Auto-generated constructor stub
+    // Getters
+    public int getId() {
+        return id;
     }
 
     public String getTitle() {
-        // TODO Auto-generated method stub
-        throw new UnsupportedOperationException("Unimplemented method 'getTitle'");
+        return title;
+    }
+
+    public String getDescription() {
+        return description;
+    }
+
+    public LocalDateTime getStart() {
+        return start;
+    }
+
+    public LocalDateTime getEnd() {
+        return end;
+    }
+
+    // Setters
+    public void setId(int id) {
+        this.id = id;
     }
 
     public void setTitle(String title) {
-        // TODO Auto-generated method stub
-        throw new UnsupportedOperationException("Unimplemented method 'setTitle'");
+        this.title = title;
+    }
+
+    public void setDescription(String description) {
+        this.description = description;
+    }
+
+    public void setStart(LocalDateTime start) {
+        this.start = start;
+    }
+
+    public void setEnd(LocalDateTime end) {
+        this.end = end;
     }
 
     public Object getDate() {
@@ -30,14 +72,9 @@ public class Event {
         throw new UnsupportedOperationException("Unimplemented method 'setDate'");
     }
 
-    public Object getEventId() {
+    public LocalDateTime getEndDateTime() {
         // TODO Auto-generated method stub
-        throw new UnsupportedOperationException("Unimplemented method 'getEventId'");
-    }
-
-    public Object getDescription() {
-        // TODO Auto-generated method stub
-        throw new UnsupportedOperationException("Unimplemented method 'getDescription'");
+        throw new UnsupportedOperationException("Unimplemented method 'getEndDateTime'");
     }
 
     public LocalDateTime getStartDateTime() {
@@ -45,9 +82,8 @@ public class Event {
         throw new UnsupportedOperationException("Unimplemented method 'getStartDateTime'");
     }
 
-    public LocalDateTime getEndDateTime() {
+    public Object getEventId() {
         // TODO Auto-generated method stub
-        throw new UnsupportedOperationException("Unimplemented method 'getEndDateTime'");
+        throw new UnsupportedOperationException("Unimplemented method 'getEventId'");
     }
-    
 }
