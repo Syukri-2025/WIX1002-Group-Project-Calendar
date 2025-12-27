@@ -17,11 +17,7 @@ public class CalendarView {
         addButton.addActionListener(adding -> showAddEventForm());
         updateButton.addActionListener(adding -> showUpdateEventForm());
         deleteButton.addActionListener(adding -> showDeleteEventForm());
-        viewButton.addActionListener(adding -> {
-                LocalDate today = LocalDate.now();
-                showCalendar(today.getYear(), today.getMonthValue());
-            });
-
+        viewButton.addActionListener(adding -> showEvents());
 
         JPanel panel = new JPanel();
         panel.add(addButton);

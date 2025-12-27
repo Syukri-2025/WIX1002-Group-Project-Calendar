@@ -50,7 +50,7 @@ public ArrayList<Event> getEvent(){
 }
 
 public Event[] getEvents() {
-    // TODO Auto-generated method stub
+    
     throw new UnsupportedOperationException("Unimplemented method 'getEvents'");
 }
 
