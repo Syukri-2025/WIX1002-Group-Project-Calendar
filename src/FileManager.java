@@ -33,7 +33,6 @@ public class FileManager {
         try (BufferedReader reader = new BufferedReader(new FileReader(file))) {
             
             String currentLine;
-            
             // Loop: Read one line at a time until the file ends
             while ((currentLine = reader.readLine()) != null) {
                 
