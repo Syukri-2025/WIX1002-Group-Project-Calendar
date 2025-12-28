@@ -8,12 +8,15 @@ public class SchedulerApp {
 
     private ArrayList<Event> events = new ArrayList<>();
 
+     public SchedulerApp() {
+    // This pulls the data from the CSV file into your list when the app starts
+    this.events = new ArrayList<>(FileManager.loadEvents());
+}
     //--> addEvent method
-    public void addEvent(Event adding){
-
-        events.add(adding); //kind of add the title and date the Event file has
-    }
-
+   public void addEvent(Event adding){
+    events.add(adding);
+    FileManager.saveEvents(this.events); // Save change to file!
+}
     public Event findTitle(String title){
         
         for(Event adding : events ){
@@ -23,36 +26,37 @@ public class SchedulerApp {
         return null; //---error 
 
     }
+public void updateEvent(String oldTitle, Event update) {
+    Event existing = findTitle(oldTitle);
+    if (existing != null) {
+        // Update the fields in the object
+        existing.setTitle(update.getTitle());
+        existing.setStart(update.getStart()); // Use the LocalDateTime setter
+        existing.setDescription(update.getDescription());
+        existing.setEnd(update.getEnd());
 
-    public void updateEvent(String oldTitle, Event update){
-        Event existing = findTitle(oldTitle);
-            if(existing != null){
-                existing.setTitle(update.getTitle());
-                existing.setDate(update.getDate());
-
-            }
-
+        // Step B: IMPORTANT - Sync changes to your CSV file
+        // After updating the list, you must tell the file manager to rewrite the file
+        FileManager.saveEvents(this.events); 
+    } else {
+        System.out.println("Event not found: " + oldTitle);
     }
+}
 
     public void deleteEvent(String title){
-        Event existing = findTitle(title);
-
-        if(existing != null){
-            events.remove(existing);
-
-        }
-
+    Event existing = findTitle(title);
+    if(existing != null){
+        events.remove(existing);
+        FileManager.saveEvents(this.events); // Save change to file!
     }
+}
 
-public ArrayList<Event> getEvent(){
+public ArrayList<Event> getEvents(){
     return events;
 
 }
 
-public Event[] getEvents() {
-    
-    throw new UnsupportedOperationException("Unimplemented method 'getEvents'");
-}
+
 
     
 

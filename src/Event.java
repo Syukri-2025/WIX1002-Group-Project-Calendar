@@ -16,9 +16,7 @@ public class Event {
         this.end = end;
     }
 
-    public Event(String title2, String date) {
-        //TODO Auto-generated constructor stub
-    }
+   
 
     // Getters
     public int getId() {
@@ -62,28 +60,5 @@ public class Event {
         this.end = end;
     }
 
-    public Object getDate() {
-        // TODO Auto-generated method stub
-        throw new UnsupportedOperationException("Unimplemented method 'getDate'");
-    }
-
-    public void setDate(Object date) {
-        // TODO Auto-generated method stub
-        throw new UnsupportedOperationException("Unimplemented method 'setDate'");
-    }
-
-    public LocalDateTime getEndDateTime() {
-        // TODO Auto-generated method stub
-        throw new UnsupportedOperationException("Unimplemented method 'getEndDateTime'");
-    }
-
-    public LocalDateTime getStartDateTime() {
-        // TODO Auto-generated method stub
-        throw new UnsupportedOperationException("Unimplemented method 'getStartDateTime'");
-    }
-
-    public Object getEventId() {
-        // TODO Auto-generated method stub
-        throw new UnsupportedOperationException("Unimplemented method 'getEventId'");
-    }
+  
 }

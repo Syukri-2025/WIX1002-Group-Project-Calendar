@@ -73,6 +73,10 @@ public class FileManager {
     // 3. SAVING (Take List -> Write to File)
     public static void saveEvents(List<Event> eventsToSave) {
         
+        File folder = new File("data");
+    if (!folder.exists()) {
+        folder.mkdir(); 
+    }
         // "BufferedWriter" is like a fast typewriter
         try (BufferedWriter writer = new BufferedWriter(new FileWriter(FILE_PATH))) {
             
