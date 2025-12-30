@@ -103,4 +103,38 @@ public class FileManager {
             System.out.println("Error saving file: " + e.getMessage());
         }
     }
+
+    /**
+     * Create a timestamped backup of the events CSV under data/backups
+     * @param events list of events to write
+     * @return path to the created backup file
+     * @throws IOException if write fails
+     */
+    public static String backupEvents(List<Event> events) throws IOException {
+        File backupsDir = new File("data/backups");
+        if (!backupsDir.exists()) {
+            if (!backupsDir.mkdirs()) {
+                throw new IOException("Could not create backups directory: " + backupsDir.getPath());
+            }
+        }
+
+        String timestamp = LocalDateTime.now().format(DateTimeFormatter.ofPattern("yyyyMMdd-HHmmss"));
+        File backupFile = new File(backupsDir, "event-backup-" + timestamp + ".csv");
+
+        try (BufferedWriter writer = new BufferedWriter(new FileWriter(backupFile))) {
+            for (Event event : events) {
+                String csvLine = String.format("%d,%s,%s,%s,%s",
+                        event.getId(),
+                        event.getTitle(),
+                        event.getDescription(),
+                        event.getStart().format(DATE_FORMAT),
+                        event.getEnd().format(DATE_FORMAT)
+                );
+                writer.write(csvLine);
+                writer.newLine();
+            }
+        }
+
+        return backupFile.getPath();
+    }
 }

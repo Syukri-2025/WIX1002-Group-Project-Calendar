@@ -1,5 +1,10 @@
 import java.util.ArrayList;
-
+import java.time.LocalDateTime;
+import java.time.Duration;
+import java.io.IOException;
+import java.util.concurrent.ScheduledExecutorService;
+import java.util.concurrent.Executors;
+import java.util.concurrent.TimeUnit;
 
 public class SchedulerApp {
 
@@ -56,7 +61,58 @@ public ArrayList<Event> getEvents(){
 
 }
 
+public void checkReminders() {
+    LocalDateTime now = LocalDateTime.now();
 
+    for (Event e : events) {
+        if (e.getStart() == null) continue;
+        long mins = Duration.between(now, e.getStart()).toMinutes();
+        if (mins >= 0 && mins <= 30) {
+            System.out.println("Alert: You have an event in 30 minutes: " + e.getTitle());
+        }
+    }
+}
+
+public void showStatistics() {
+        Analytics.printStatistics(events);
+    }
+
+    // -------- Backup APIs --------
+    private ScheduledExecutorService backupScheduler = null;
+
+    /**
+     * Create a one-off backup now and return the backup path or null if failed
+     */
+    public String backupEventsNow() {
+        try {
+            String path = FileManager.backupEvents(this.events);
+            System.out.println("Backup created: " + path);
+            return path;
+        } catch (IOException e) {
+            System.out.println("Backup failed: " + e.getMessage());
+            return null;
+        }
+    }
+
+    /**
+     * Start automatic backups every N minutes. If already running, this is a no-op.
+     */
+    public void startBackupService(long intervalMinutes) {
+        if (backupScheduler != null && !backupScheduler.isShutdown()) return; // already running
+        backupScheduler = Executors.newSingleThreadScheduledExecutor();
+        backupScheduler.scheduleAtFixedRate(() -> {
+            String path = backupEventsNow();
+            if (path != null) System.out.println("Automatic backup saved to " + path);
+        }, 0, Math.max(1, intervalMinutes), TimeUnit.MINUTES);
+    }
+
+    /** Stop the automatic backup service (if running) */
+    public void stopBackupService() {
+        if (backupScheduler != null) {
+            backupScheduler.shutdownNow();
+            backupScheduler = null;
+        }
+    }
 
     
 

@@ -6,6 +6,7 @@ public class Event {
     private String description;
     private LocalDateTime start;
     private LocalDateTime end;
+    private Recurrence recurrence;
 
     // Constructor
     public Event(int id, String title, String description, LocalDateTime start, LocalDateTime end) {
@@ -60,5 +61,13 @@ public class Event {
         this.end = end;
     }
 
-  
+    // Recurrence getter/setter
+    public Recurrence getRecurrence() {
+        return recurrence;
+    }
+
+    public void setRecurrence(Recurrence recurrence) {
+        this.recurrence = recurrence;
+    }
+
 }
