@@ -5,13 +5,7 @@ import java.util.List;
 
 public class SearchUtils {
 
-    /**
-     * Checks whether a new event time slot overlaps with existing events
-     * @param events List of existing events
-     * @param newStart Start time of new event
-     * @param newEnd End time of new event
-     * @return true if time slot is free, false if conflict exists
-     */
+    
     public static boolean isTimeSlotFree(
             List<Event> events,
             LocalDateTime newStart,
@@ -26,12 +20,7 @@ public class SearchUtils {
         return true; // No conflict
     }
 
-    /**
-     * Search events by keyword (title or description)
-     * @param events List of events
-     * @param keyword Keyword to search
-     * @return List of matched events
-     */
+    
     public static List<Event> searchByKeyword(
             List<Event> events,
             String keyword) {
@@ -47,12 +36,7 @@ public class SearchUtils {
         return result;
     }
 
-    /**
-     * Search events by date
-     * @param events List of events
-     * @param date Date to search
-     * @return List of events on the given date
-     */
+   
     public static List<Event> searchByDate(
             List<Event> events,
             LocalDate date) {
