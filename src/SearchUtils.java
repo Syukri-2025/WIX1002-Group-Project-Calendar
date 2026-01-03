@@ -50,4 +50,56 @@ public class SearchUtils {
         }
         return result;
     }
+
+    /**
+     * Search events within a date range (inclusive)
+     * @param events List of events to search
+     * @param startDate Start of the date range
+     * @param endDate End of the date range
+     * @return List of events that fall within the range
+     */
+    public static List<Event> searchByDateRange(
+            List<Event> events,
+            LocalDate startDate,
+            LocalDate endDate) {
+
+        List<Event> result = new ArrayList<>();
+
+        for (Event event : events) {
+            LocalDate eventDate = event.getStart().toLocalDate();
+            // Check if event date is within range (inclusive)
+            if (!eventDate.isBefore(startDate) && !eventDate.isAfter(endDate)) {
+                result.add(event);
+            }
+        }
+        return result;
+    }
+    
+    /**
+     * Search events by additional fields (location, category, priority)
+     * @param events List of events
+     * @param fieldsMap Map of additional fields
+     * @param keyword Keyword to search
+     * @return List of matching events
+     */
+    public static List<Event> searchByAdditionalFields(
+            List<Event> events,
+            java.util.Map<Integer, AdditionalFields> fieldsMap,
+            String keyword) {
+        
+        List<Event> result = new ArrayList<>();
+        String lowerKeyword = keyword.toLowerCase();
+        
+        for (Event event : events) {
+            AdditionalFields fields = fieldsMap.get(event.getId());
+            if (fields != null) {
+                if (fields.getLocation().toLowerCase().contains(lowerKeyword) ||
+                    fields.getCategory().toLowerCase().contains(lowerKeyword) ||
+                    fields.getPriority().toLowerCase().contains(lowerKeyword)) {
+                    result.add(event);
+                }
+            }
+        }
+        return result;
+    }
 }

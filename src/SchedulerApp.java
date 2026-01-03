@@ -1,4 +1,5 @@
 import java.util.ArrayList;
+import java.util.List;
 import java.time.LocalDateTime;
 import java.time.Duration;
 import java.io.IOException;
@@ -12,10 +13,12 @@ public class SchedulerApp {
     //detected easily 
 
     private ArrayList<Event> events = new ArrayList<>();
+    private java.util.Map<Integer, AdditionalFields> additionalFieldsMap = new java.util.HashMap<>();
 
      public SchedulerApp() {
     // This pulls the data from the CSV file into your list when the app starts
     this.events = new ArrayList<>(FileManager.loadEvents());
+    this.additionalFieldsMap = FileManager.loadAdditionalFields();
 }
     //--> addEvent method
    public void addEvent(Event adding){
@@ -49,12 +52,37 @@ public void updateEvent(String oldTitle, Event update) {
 }
 
     public void deleteEvent(String title){
-    Event existing = findTitle(title);
-    if(existing != null){
-        events.remove(existing);
-        FileManager.saveEvents(this.events); // Save change to file!
+        Event existing = findTitle(title);
+        if(existing != null){
+            events.remove(existing);
+            FileManager.saveEvents(this.events); // Save change to file!
+            System.out.println("Deleted event: " + title + " (ID: " + existing.getId() + ")");
+        } else {
+            System.out.println("Event not found: " + title);
+        }
     }
-}
+    
+    /**
+     * Delete all events with the given title
+     * @param title Title of events to delete
+     * @return Number of events deleted
+     */
+    public int deleteAllEventsByTitle(String title){
+        int count = 0;
+        java.util.Iterator<Event> iterator = events.iterator();
+        while (iterator.hasNext()) {
+            Event event = iterator.next();
+            if (event.getTitle().equalsIgnoreCase(title)) {
+                iterator.remove();
+                count++;
+            }
+        }
+        if (count > 0) {
+            FileManager.saveEvents(this.events);
+            System.out.println("Deleted " + count + " event(s) with title: " + title);
+        }
+        return count;
+    }
 
 public ArrayList<Event> getEvents(){
     return events;
@@ -67,14 +95,40 @@ public void checkReminders() {
     for (Event e : events) {
         if (e.getStart() == null) continue;
         long mins = Duration.between(now, e.getStart()).toMinutes();
-        if (mins >= 0 && mins <= 30) {
-            System.out.println("Alert: You have an event in 30 minutes: " + e.getTitle());
+        
+        // Check if event is within the reminder window
+        if (e.getReminderMinutes() > 0 && mins >= 0 && mins <= e.getReminderMinutes()) {
+            System.out.println("Alert: You have an event in " + mins + " minutes: " + e.getTitle());
         }
     }
 }
 
+/**
+ * Get upcoming events sorted by time
+ * @param withinMinutes Only return events within this many minutes
+ * @return List of upcoming events
+ */
+public java.util.List<Event> getUpcomingEvents(int withinMinutes) {
+    LocalDateTime now = LocalDateTime.now();
+    java.util.List<Event> upcoming = new java.util.ArrayList<>();
+    
+    for (Event e : events) {
+        if (e.getStart() == null) continue;
+        long mins = Duration.between(now, e.getStart()).toMinutes();
+        
+        // Event is in the future and within the time window
+        if (mins >= 0 && mins <= withinMinutes) {
+            upcoming.add(e);
+        }
+    }
+    
+    // Sort by start time
+    upcoming.sort((e1, e2) -> e1.getStart().compareTo(e2.getStart()));
+    return upcoming;
+}
+
 public void showStatistics() {
-        Analytics.printStatistics(events);
+        analytics.printStatistics(events);
     }
 
     // -------- Backup APIs --------
@@ -91,6 +145,25 @@ public void showStatistics() {
         } catch (IOException e) {
             System.out.println("Backup failed: " + e.getMessage());
             return null;
+        }
+    }
+
+    /**
+     * Restore events from a backup file
+     * @param backupFileName name of the backup file
+     * @return true if restore was successful
+     */
+    public boolean restoreFromBackup(String backupFileName) {
+        try {
+            String backupPath = "data/backups/" + backupFileName;
+            List<Event> restoredEvents = FileManager.restoreFromBackup(backupPath);
+            this.events = new ArrayList<>(restoredEvents);
+            FileManager.saveEvents(this.events);
+            System.out.println("Restored " + restoredEvents.size() + " events from " + backupPath);
+            return true;
+        } catch (IOException e) {
+            System.out.println("Restore failed: " + e.getMessage());
+            return false;
         }
     }
 
@@ -114,7 +187,25 @@ public void showStatistics() {
         }
     }
 
-    
+    /**
+     * Check if a new event conflicts with any existing events
+     * @param start start time of new event
+     * @param end end time of new event
+     * @param excludeId event ID to exclude from check (for updates, use -1 to check all)
+     * @return conflicting event if found, null otherwise
+     */
+    public Event hasConflict(LocalDateTime start, LocalDateTime end, int excludeId) {
+        for (Event event : events) {
+            if (event.getId() == excludeId) continue; // Skip the event being updated
+            
+            // Check if time ranges overlap
+            // Events overlap if: start < event.end AND end > event.start
+            if (start.isBefore(event.getEnd()) && end.isAfter(event.getStart())) {
+                return event; // Found a conflict
+            }
+        }
+        return null; // No conflict
+    }
 
 
 
@@ -159,4 +250,44 @@ public void showStatistics() {
 
     //    } scanner.close();
   //  }
+  
+    // ================ ADDITIONAL FIELDS MANAGEMENT ================
+    
+    public void addAdditionalFields(int eventId, AdditionalFields fields) {
+        additionalFieldsMap.put(eventId, fields);
+        FileManager.saveAdditionalFields(additionalFieldsMap);
+    }
+    
+    public AdditionalFields getAdditionalFields(int eventId) {
+        return additionalFieldsMap.get(eventId);
+    }
+    
+    public java.util.Map<Integer, AdditionalFields> getAllAdditionalFields() {
+        return additionalFieldsMap;
+    }
+    
+    public String backupAdditionalFieldsNow() {
+        try {
+            String path = FileManager.backupAdditionalFields(additionalFieldsMap);
+            System.out.println("Additional fields backup created: " + path);
+            return path;
+        } catch (IOException e) {
+            System.out.println("Additional fields backup failed: " + e.getMessage());
+            return null;
+        }
+    }
+    
+    public boolean restoreAdditionalFieldsFromBackup(String backupFileName) {
+        try {
+            String backupPath = "data/backups/" + backupFileName;
+            additionalFieldsMap = FileManager.restoreAdditionalFields(backupPath);
+            FileManager.saveAdditionalFields(additionalFieldsMap);
+            System.out.println("Restored additional fields from " + backupPath);
+            return true;
+        } catch (IOException e) {
+            System.out.println("Restore additional fields failed: " + e.getMessage());
+            return false;
+        }
+    }
 }
+

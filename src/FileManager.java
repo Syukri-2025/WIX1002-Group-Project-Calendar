@@ -40,8 +40,8 @@ public class FileManager {
                 if (currentLine.trim().isEmpty()) continue;
 
                 // Step C: Break the line into pieces
-                // Input:  "101, Study, Math revision, 2025-10-01T09:00, 2025-10-01T11:00"
-                // Result: ["101", "Study", "Math revision", "2025...", "2025..."]
+                // Input:  "101, Study, Math revision, 2025-10-01T09:00, 2025-10-01T11:00, 30"
+                // Result: ["101", "Study", "Math revision", "2025...", "2025...", "30"]
                 String[] parts = currentLine.split(",");
 
                 // Step D: Convert text to real data
@@ -56,9 +56,19 @@ public class FileManager {
                     // 3. Convert text dates to Java Date objects
                     LocalDateTime start = LocalDateTime.parse(parts[3].trim(), DATE_FORMAT);
                     LocalDateTime end   = LocalDateTime.parse(parts[4].trim(), DATE_FORMAT);
+                    
+                    // 4. Get reminder minutes (default to 0 if not present)
+                    int reminderMinutes = 0;
+                    if (parts.length >= 6) {
+                        try {
+                            reminderMinutes = Integer.parseInt(parts[5].trim());
+                        } catch (NumberFormatException e) {
+                            reminderMinutes = 0;
+                        }
+                    }
 
-                    // 4. Create the Event and add to our list
-                    Event newEvent = new Event(id, title, description, start, end);
+                    // 5. Create the Event and add to our list
+                    Event newEvent = new Event(id, title, description, start, end, reminderMinutes);
                     eventList.add(newEvent);
                 }
             }
@@ -83,13 +93,14 @@ public class FileManager {
             for (Event event : eventsToSave) {
                 
                 // Step A: Combine all data into one comma-separated string
-                // Example: "101,Study,Math revision,2025-10-01T09:00,2025-10-01T11:00"
-                String csvLine = String.format("%d,%s,%s,%s,%s",
+                // Example: "101,Study,Math revision,2025-10-01T09:00,2025-10-01T11:00,30"
+                String csvLine = String.format("%d,%s,%s,%s,%s,%d",
                     event.getId(),
                     event.getTitle(),
                     event.getDescription(),
                     event.getStart().format(DATE_FORMAT),
-                    event.getEnd().format(DATE_FORMAT)
+                    event.getEnd().format(DATE_FORMAT),
+                    event.getReminderMinutes()
                 );
                 
                 // Step B: Write it to the file
@@ -123,18 +134,223 @@ public class FileManager {
 
         try (BufferedWriter writer = new BufferedWriter(new FileWriter(backupFile))) {
             for (Event event : events) {
-                String csvLine = String.format("%d,%s,%s,%s,%s",
+                String csvLine = String.format("%d,%s,%s,%s,%s,%d",
                         event.getId(),
                         event.getTitle(),
                         event.getDescription(),
                         event.getStart().format(DATE_FORMAT),
-                        event.getEnd().format(DATE_FORMAT)
+                        event.getEnd().format(DATE_FORMAT),
+                        event.getReminderMinutes()
                 );
                 writer.write(csvLine);
                 writer.newLine();
             }
         }
 
-        return backupFile.getPath();
+        return backupFile.getAbsolutePath();
+    }
+
+    /**
+     * Restore events from a specific backup file
+     * @param backupFilePath path to the backup file
+     * @return List of events loaded from backup
+     * @throws IOException if read fails
+     */
+    public static List<Event> restoreFromBackup(String backupFilePath) throws IOException {
+        List<Event> eventList = new ArrayList<>();
+        File file = new File(backupFilePath);
+
+        if (!file.exists()) {
+            throw new IOException("Backup file not found: " + backupFilePath);
+        }
+
+        try (BufferedReader reader = new BufferedReader(new FileReader(file))) {
+            String currentLine;
+            while ((currentLine = reader.readLine()) != null) {
+                if (currentLine.trim().isEmpty()) continue;
+
+                String[] parts = currentLine.split(",");
+                if (parts.length >= 5) {
+                    int id = Integer.parseInt(parts[0].trim());
+                    String title = parts[1].trim();
+                    String description = parts[2].trim();
+                    LocalDateTime start = LocalDateTime.parse(parts[3].trim(), DATE_FORMAT);
+                    LocalDateTime end = LocalDateTime.parse(parts[4].trim(), DATE_FORMAT);
+                    
+                    int reminderMinutes = 0;
+                    if (parts.length >= 6) {
+                        try {
+                            reminderMinutes = Integer.parseInt(parts[5].trim());
+                        } catch (NumberFormatException e) {
+                            reminderMinutes = 0;
+                        }
+                    }
+
+                    Event newEvent = new Event(id, title, description, start, end, reminderMinutes);
+                    eventList.add(newEvent);
+                }
+            }
+        }
+
+        return eventList;
+    }
+
+    /**
+     * List all backup files in the backups directory
+     * @return Array of backup file names
+     */
+    public static String[] listBackupFiles() {
+        File backupsDir = new File("data/backups");
+        if (!backupsDir.exists() || !backupsDir.isDirectory()) {
+            return new String[0];
+        }
+
+        File[] files = backupsDir.listFiles((dir, name) -> name.endsWith(".csv"));
+        if (files == null || files.length == 0) {
+            return new String[0];
+        }
+
+        String[] fileNames = new String[files.length];
+        for (int i = 0; i < files.length; i++) {
+            fileNames[i] = files[i].getName();
+        }
+        return fileNames;
+    }
+    
+    // ================ ADDITIONAL FIELDS MANAGEMENT ================
+    
+    private static final String ADDITIONAL_FILE_PATH = "data/additional.csv";
+    
+    /**
+     * Load additional fields from additional.csv
+     * @return Map of eventId to AdditionalFields
+     */
+    public static java.util.Map<Integer, AdditionalFields> loadAdditionalFields() {
+        java.util.Map<Integer, AdditionalFields> fieldsMap = new java.util.HashMap<>();
+        File file = new File(ADDITIONAL_FILE_PATH);
+        
+        if (!file.exists()) {
+            System.out.println("No additional fields file found.");
+            return fieldsMap;
+        }
+        
+        try (BufferedReader reader = new BufferedReader(new FileReader(file))) {
+            String currentLine;
+            boolean firstLine = true;
+            
+            while ((currentLine = reader.readLine()) != null) {
+                if (currentLine.trim().isEmpty()) continue;
+                
+                // Skip header line
+                if (firstLine && currentLine.startsWith("eventId")) {
+                    firstLine = false;
+                    continue;
+                }
+                firstLine = false;
+                
+                AdditionalFields fields = AdditionalFields.fromCsvLine(currentLine);
+                if (fields != null) {
+                    fieldsMap.put(fields.getEventId(), fields);
+                }
+            }
+        } catch (Exception e) {
+            System.out.println("Error loading additional fields: " + e.getMessage());
+        }
+        
+        return fieldsMap;
+    }
+    
+    /**
+     * Save additional fields to additional.csv
+     * @param fieldsMap Map of eventId to AdditionalFields
+     */
+    public static void saveAdditionalFields(java.util.Map<Integer, AdditionalFields> fieldsMap) {
+        File folder = new File("data");
+        if (!folder.exists()) {
+            folder.mkdir();
+        }
+        
+        try (BufferedWriter writer = new BufferedWriter(new FileWriter(ADDITIONAL_FILE_PATH))) {
+            // Write header
+            writer.write("eventId,location,category,priority");
+            writer.newLine();
+            
+            // Write data
+            for (AdditionalFields fields : fieldsMap.values()) {
+                writer.write(fields.toCsvString());
+                writer.newLine();
+            }
+            
+            System.out.println("Additional fields saved successfully!");
+        } catch (IOException e) {
+            System.out.println("Error saving additional fields: " + e.getMessage());
+        }
+    }
+    
+    /**
+     * Backup additional fields
+     * @param fieldsMap Map of additional fields
+     * @return Path to backup file
+     * @throws IOException if backup fails
+     */
+    public static String backupAdditionalFields(java.util.Map<Integer, AdditionalFields> fieldsMap) throws IOException {
+        File backupsDir = new File("data/backups");
+        if (!backupsDir.exists()) {
+            if (!backupsDir.mkdirs()) {
+                throw new IOException("Could not create backups directory");
+            }
+        }
+        
+        String timestamp = LocalDateTime.now().format(DateTimeFormatter.ofPattern("yyyyMMdd-HHmmss"));
+        File backupFile = new File(backupsDir, "additional-backup-" + timestamp + ".csv");
+        
+        try (BufferedWriter writer = new BufferedWriter(new FileWriter(backupFile))) {
+            writer.write("eventId,location,category,priority");
+            writer.newLine();
+            
+            for (AdditionalFields fields : fieldsMap.values()) {
+                writer.write(fields.toCsvString());
+                writer.newLine();
+            }
+        }
+        
+        return backupFile.getAbsolutePath();
+    }
+    
+    /**
+     * Restore additional fields from backup
+     * @param backupFilePath Path to backup file
+     * @return Map of restored additional fields
+     * @throws IOException if restore fails
+     */
+    public static java.util.Map<Integer, AdditionalFields> restoreAdditionalFields(String backupFilePath) throws IOException {
+        java.util.Map<Integer, AdditionalFields> fieldsMap = new java.util.HashMap<>();
+        File file = new File(backupFilePath);
+        
+        if (!file.exists()) {
+            throw new IOException("Backup file not found: " + backupFilePath);
+        }
+        
+        try (BufferedReader reader = new BufferedReader(new FileReader(file))) {
+            String currentLine;
+            boolean firstLine = true;
+            
+            while ((currentLine = reader.readLine()) != null) {
+                if (currentLine.trim().isEmpty()) continue;
+                
+                if (firstLine && currentLine.startsWith("eventId")) {
+                    firstLine = false;
+                    continue;
+                }
+                firstLine = false;
+                
+                AdditionalFields fields = AdditionalFields.fromCsvLine(currentLine);
+                if (fields != null) {
+                    fieldsMap.put(fields.getEventId(), fields);
+                }
+            }
+        }
+        
+        return fieldsMap;
     }
 }

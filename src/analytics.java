@@ -11,7 +11,7 @@ import java.util.Optional;
 /**
  * Analytics class provides statistics about events in the calendar.
  */
-public class Analytics {
+public class analytics {
 
     /**
      * Finds the busiest day of the week based on a list of events.
@@ -110,6 +110,93 @@ public class Analytics {
             else out.put("single", out.get("single") + 1);
         }
         return out;
+    }
+
+    /** Average event duration in minutes */
+    public static double averageEventDuration(List<Event> events) {
+        if (events == null || events.isEmpty()) return 0.0;
+        long totalMinutes = 0;
+        int count = 0;
+        for (Event e : events) {
+            if (e == null || e.getStart() == null || e.getEnd() == null) continue;
+            totalMinutes += Duration.between(e.getStart(), e.getEnd()).toMinutes();
+            count++;
+        }
+        return count > 0 ? (double) totalMinutes / count : 0.0;
+    }
+
+    /** Count events by category */
+    public static Map<String, Integer> eventsByCategory(List<Event> events, Map<Integer, AdditionalFields> additionalFieldsMap) {
+        Map<String, Integer> counts = new HashMap<>();
+        if (events == null || additionalFieldsMap == null) return counts;
+        
+        for (Event e : events) {
+            if (e == null) continue;
+            AdditionalFields fields = additionalFieldsMap.get(e.getId());
+            String category = (fields != null && fields.getCategory() != null && !fields.getCategory().isEmpty()) 
+                ? fields.getCategory() : "No Category";
+            counts.put(category, counts.getOrDefault(category, 0) + 1);
+        }
+        return counts;
+    }
+
+    /** Count events by priority */
+    public static Map<String, Integer> eventsByPriority(List<Event> events, Map<Integer, AdditionalFields> additionalFieldsMap) {
+        Map<String, Integer> counts = new HashMap<>();
+        if (events == null || additionalFieldsMap == null) return counts;
+        
+        for (Event e : events) {
+            if (e == null) continue;
+            AdditionalFields fields = additionalFieldsMap.get(e.getId());
+            String priority = (fields != null && fields.getPriority() != null && !fields.getPriority().isEmpty()) 
+                ? fields.getPriority() : "No Priority";
+            counts.put(priority, counts.getOrDefault(priority, 0) + 1);
+        }
+        return counts;
+    }
+
+    /** Count upcoming vs past events */
+    public static Map<String, Integer> upcomingVsPastEvents(List<Event> events) {
+        Map<String, Integer> counts = new HashMap<>();
+        counts.put("upcoming", 0);
+        counts.put("past", 0);
+        if (events == null) return counts;
+        
+        LocalDateTime now = LocalDateTime.now();
+        for (Event e : events) {
+            if (e == null || e.getStart() == null) continue;
+            if (e.getStart().isAfter(now)) {
+                counts.put("upcoming", counts.get("upcoming") + 1);
+            } else {
+                counts.put("past", counts.get("past") + 1);
+            }
+        }
+        return counts;
+    }
+
+    /** Distribution of events by time of day */
+    public static Map<String, Integer> eventsByTimeOfDay(List<Event> events) {
+        Map<String, Integer> counts = new HashMap<>();
+        counts.put("Morning (6-12)", 0);
+        counts.put("Afternoon (12-18)", 0);
+        counts.put("Evening (18-22)", 0);
+        counts.put("Night (22-6)", 0);
+        if (events == null) return counts;
+        
+        for (Event e : events) {
+            if (e == null || e.getStart() == null) continue;
+            int hour = e.getStart().getHour();
+            if (hour >= 6 && hour < 12) {
+                counts.put("Morning (6-12)", counts.get("Morning (6-12)") + 1);
+            } else if (hour >= 12 && hour < 18) {
+                counts.put("Afternoon (12-18)", counts.get("Afternoon (12-18)") + 1);
+            } else if (hour >= 18 && hour < 22) {
+                counts.put("Evening (18-22)", counts.get("Evening (18-22)") + 1);
+            } else {
+                counts.put("Night (22-6)", counts.get("Night (22-6)") + 1);
+            }
+        }
+        return counts;
     }
 
     /** Print an extended statistics summary */
