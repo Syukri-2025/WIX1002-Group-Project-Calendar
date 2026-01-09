@@ -353,4 +353,41 @@ public class FileManager {
         
         return fieldsMap;
     }
+
+    // ================ Notified reminders persistence ================
+    private static final String NOTIFIED_FILE_PATH = "data/notified_reminders.txt";
+
+    public static java.util.Set<Integer> loadNotifiedReminders() {
+        java.util.Set<Integer> set = new java.util.HashSet<>();
+        File file = new File(NOTIFIED_FILE_PATH);
+        if (!file.exists()) return set;
+        try (BufferedReader reader = new BufferedReader(new FileReader(file))) {
+            String line;
+            while ((line = reader.readLine()) != null) {
+                if (line.trim().isEmpty()) continue;
+                try {
+                    set.add(Integer.parseInt(line.trim()));
+                } catch (NumberFormatException e) {
+                    // skip invalid lines
+                }
+            }
+        } catch (Exception e) {
+            System.out.println("Error loading notified reminders: " + e.getMessage());
+        }
+        return set;
+    }
+
+    public static void saveNotifiedReminders(java.util.Set<Integer> set) {
+        File folder = new File("data");
+        if (!folder.exists()) folder.mkdir();
+        File file = new File(NOTIFIED_FILE_PATH);
+        try (BufferedWriter writer = new BufferedWriter(new FileWriter(file))) {
+            for (Integer id : set) {
+                writer.write(String.valueOf(id));
+                writer.newLine();
+            }
+        } catch (IOException e) {
+            System.out.println("Error saving notified reminders: " + e.getMessage());
+        }
+    }
 }
