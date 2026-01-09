@@ -55,6 +55,7 @@ public class CalendarView {
         });
 
         JPanel panel = new JPanel();
+        panel.setLayout(new GridLayout(0, 3, 10, 10));  // 3 columns, 10px horizontal gap, 10px vertical gap
         panel.add(addButton);
         panel.add(updateButton);
         panel.add(deleteButton);
@@ -68,7 +69,7 @@ public class CalendarView {
         panel.add(clearNotifiedButton);
 
         frame.add(panel);
-        frame.setSize(900, 200);
+        frame.setSize(700, 350);
         frame.setDefaultCloseOperation(JFrame.EXIT_ON_CLOSE);
         frame.addWindowListener(new java.awt.event.WindowAdapter() {
             public void windowClosing(java.awt.event.WindowEvent e) {
@@ -568,28 +569,66 @@ public class CalendarView {
         if (matchingEvents.size() > 1) {
             // Create array of event descriptions with dates
             DateTimeFormatter displayFormat = DateTimeFormatter.ofPattern("dd/MM/yyyy HH:mm");
-            String[] eventOptions = new String[matchingEvents.size() + 2];
+            String[] eventOptions = new String[matchingEvents.size()];
 
             for (int i = 0; i < matchingEvents.size(); i++) {
                 Event e = matchingEvents.get(i);
                 eventOptions[i] = e.getTitle() + " - " + e.getStart().format(displayFormat) +
                                   " to " + e.getEnd().format(displayFormat);
             }
-            eventOptions[matchingEvents.size()] = "Delete ALL " + matchingEvents.size() + " occurrences";
-            eventOptions[matchingEvents.size() + 1] = "Cancel";
 
-            int choice = JOptionPane.showOptionDialog(null,
-                    "Found " + matchingEvents.size() + " events with title '" + title + "'.\nSelect which one to delete:",
-                    "Multiple Events Found",
-                    JOptionPane.DEFAULT_OPTION,
-                    JOptionPane.QUESTION_MESSAGE,
-                    null,
-                    eventOptions,
-                    eventOptions[matchingEvents.size() + 1]);
+            // Create a vertical list with scroll pane
+            JList<String> eventList = new JList<>(eventOptions);
+            eventList.setSelectionMode(ListSelectionModel.SINGLE_SELECTION);
+            JScrollPane scrollPane = new JScrollPane(eventList);
+            scrollPane.setPreferredSize(new Dimension(500, 200));
 
-            if (choice >= 0 && choice < matchingEvents.size()) {
+            JPanel panel = new JPanel(new BorderLayout());
+            panel.add(new JLabel("Found " + matchingEvents.size() + " events with title '" + title + "'. Select which one to delete:"), BorderLayout.NORTH);
+            panel.add(scrollPane, BorderLayout.CENTER);
+
+            JButton deleteSelectedBtn = new JButton("Delete Selected");
+            JButton deleteAllBtn = new JButton("Delete ALL " + matchingEvents.size() + " occurrences");
+            JButton cancelBtn = new JButton("Cancel");
+
+            JPanel buttonPanel = new JPanel();
+            buttonPanel.add(deleteSelectedBtn);
+            buttonPanel.add(deleteAllBtn);
+            buttonPanel.add(cancelBtn);
+            panel.add(buttonPanel, BorderLayout.SOUTH);
+
+            JDialog dialog = new JDialog((JFrame) null, "Multiple Events Found", true);
+            dialog.setContentPane(panel);
+            dialog.pack();
+            dialog.setLocationRelativeTo(null);
+
+            final int[] choice = {-1};
+
+            deleteSelectedBtn.addActionListener(e -> {
+                int selected = eventList.getSelectedIndex();
+                if (selected >= 0) {
+                    choice[0] = selected;
+                    dialog.dispose();
+                } else {
+                    JOptionPane.showMessageDialog(dialog, "Please select an event to delete.", "No Selection", JOptionPane.WARNING_MESSAGE);
+                }
+            });
+
+            deleteAllBtn.addActionListener(e -> {
+                choice[0] = matchingEvents.size();
+                dialog.dispose();
+            });
+
+            cancelBtn.addActionListener(e -> {
+                choice[0] = -1;
+                dialog.dispose();
+            });
+
+            dialog.setVisible(true);
+
+            if (choice[0] >= 0 && choice[0] < matchingEvents.size()) {
                 // Delete the specific event selected
-                Event toDelete = matchingEvents.get(choice);
+                Event toDelete = matchingEvents.get(choice[0]);
                 int confirm = JOptionPane.showConfirmDialog(null,
                         "Are you sure you want to delete this event?\n" +
                         toDelete.getTitle() + "\n" +
@@ -607,7 +646,7 @@ public class CalendarView {
                             "Delete Successful",
                             JOptionPane.INFORMATION_MESSAGE);
                 }
-            } else if (choice == matchingEvents.size()) {
+            } else if (choice[0] == matchingEvents.size()) {
                 // Delete all occurrences
                 int confirm = JOptionPane.showConfirmDialog(null,
                         "Are you sure you want to delete ALL " + matchingEvents.size() + " occurrences of '" + title + "'?",

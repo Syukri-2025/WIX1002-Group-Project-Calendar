@@ -11,22 +11,43 @@ public class FileManager {
     
     // 1. SETTINGS
     // The file where we save our data
-    private static final String FILE_PATH = "data/event.csv";
+    // Use System.getProperty("user.dir") to ensure we're always in the project root
+    private static final String FILE_PATH = System.getProperty("user.dir") + File.separator + "data" + File.separator + "event.csv";
+    private static final String ADDITIONAL_FILE_PATH = System.getProperty("user.dir") + File.separator + "data" + File.separator + "additional.csv";
     
     // The format for dates (e.g., "2025-12-31T15:00:00")
     private static final DateTimeFormatter DATE_FORMAT = DateTimeFormatter.ISO_LOCAL_DATE_TIME;
 
+    // CSV Helper Methods
+    private static String escapeCsvField(String field) {
+        if (field == null) return "";
+        return field.replace(",", ";;");
+    }
+    
+    private static String unescapeCsvField(String field) {
+        if (field == null) return "";
+        return field.replace(";;", ",");
+    }
 
     // 2. LOADING (Read from File -> Create List)
     public static List<Event> loadEvents() {
         List<Event> eventList = new ArrayList<>();
         File file = new File(FILE_PATH);
 
+        // DEBUG: Print file information
+        System.out.println("=== LOADING EVENTS DEBUG ===");
+        System.out.println("Looking for file at: " + FILE_PATH);
+        System.out.println("Absolute path: " + file.getAbsolutePath());
+        System.out.println("File exists: " + file.exists());
+        System.out.println("Current working directory: " + System.getProperty("user.dir"));
+        
         // Step A: Safety Check - Does the file exist?
         if (!file.exists()) {
             System.out.println("No save file found. Starting a fresh calendar.");
             return eventList; // Return empty list
         }
+        
+        System.out.println("File found! Loading events...");
 
         // Step B: Read the file
         // "try" automatically closes the file when we are done (prevents errors)
@@ -49,9 +70,9 @@ public class FileManager {
                     // 1. Convert text "101" to number 101
                     int id = Integer.parseInt(parts[0].trim());
                     
-                    // 2. Get the simple text parts
-                    String title = parts[1].trim();
-                    String description = parts[2].trim();
+                    // 2. Get the simple text parts (unescape commas)
+                    String title = unescapeCsvField(parts[1].trim());
+                    String description = unescapeCsvField(parts[2].trim());
                     
                     // 3. Convert text dates to Java Date objects
                     LocalDateTime start = LocalDateTime.parse(parts[3].trim(), DATE_FORMAT);
@@ -74,8 +95,11 @@ public class FileManager {
             }
         } catch (Exception e) {// Catch any error that occurs during reading/parsing
             System.out.println("Error loading events: " + e.getMessage());
+            e.printStackTrace();
         }
         
+        System.out.println("Loaded " + eventList.size() + " event(s) from file.");
+        System.out.println("=== END DEBUG ===");
         return eventList;
     }
 
@@ -83,7 +107,7 @@ public class FileManager {
     // 3. SAVING (Take List -> Write to File)
     public static void saveEvents(List<Event> eventsToSave) {
         
-        File folder = new File("data");
+        File folder = new File(System.getProperty("user.dir") + File.separator + "data");
     if (!folder.exists()) {
         folder.mkdir(); 
     }
@@ -96,8 +120,8 @@ public class FileManager {
                 // Example: "101,Study,Math revision,2025-10-01T09:00,2025-10-01T11:00,30"
                 String csvLine = String.format("%d,%s,%s,%s,%s,%d",
                     event.getId(),
-                    event.getTitle(),
-                    event.getDescription(),
+                    escapeCsvField(event.getTitle()),
+                    escapeCsvField(event.getDescription()),
                     event.getStart().format(DATE_FORMAT),
                     event.getEnd().format(DATE_FORMAT),
                     event.getReminderMinutes()
@@ -122,7 +146,7 @@ public class FileManager {
      * @throws IOException if write fails
      */
     public static String backupEvents(List<Event> events) throws IOException {
-        File backupsDir = new File("data/backups");
+        File backupsDir = new File(System.getProperty("user.dir") + File.separator + "data" + File.separator + "backups");
         if (!backupsDir.exists()) {
             if (!backupsDir.mkdirs()) {
                 throw new IOException("Could not create backups directory: " + backupsDir.getPath());
@@ -136,8 +160,8 @@ public class FileManager {
             for (Event event : events) {
                 String csvLine = String.format("%d,%s,%s,%s,%s,%d",
                         event.getId(),
-                        event.getTitle(),
-                        event.getDescription(),
+                        escapeCsvField(event.getTitle()),
+                        escapeCsvField(event.getDescription()),
                         event.getStart().format(DATE_FORMAT),
                         event.getEnd().format(DATE_FORMAT),
                         event.getReminderMinutes()
@@ -172,8 +196,8 @@ public class FileManager {
                 String[] parts = currentLine.split(",");
                 if (parts.length >= 5) {
                     int id = Integer.parseInt(parts[0].trim());
-                    String title = parts[1].trim();
-                    String description = parts[2].trim();
+                    String title = unescapeCsvField(parts[1].trim());
+                    String description = unescapeCsvField(parts[2].trim());
                     LocalDateTime start = LocalDateTime.parse(parts[3].trim(), DATE_FORMAT);
                     LocalDateTime end = LocalDateTime.parse(parts[4].trim(), DATE_FORMAT);
                     
@@ -200,7 +224,7 @@ public class FileManager {
      * @return Array of backup file names
      */
     public static String[] listBackupFiles() {
-        File backupsDir = new File("data/backups");
+        File backupsDir = new File(System.getProperty("user.dir") + File.separator + "data" + File.separator + "backups");
         if (!backupsDir.exists() || !backupsDir.isDirectory()) {
             return new String[0];
         }
@@ -218,8 +242,6 @@ public class FileManager {
     }
     
     // ================ ADDITIONAL FIELDS MANAGEMENT ================
-    
-    private static final String ADDITIONAL_FILE_PATH = "data/additional.csv";
     
     /**
      * Load additional fields from additional.csv
@@ -265,7 +287,7 @@ public class FileManager {
      * @param fieldsMap Map of eventId to AdditionalFields
      */
     public static void saveAdditionalFields(java.util.Map<Integer, AdditionalFields> fieldsMap) {
-        File folder = new File("data");
+        File folder = new File(System.getProperty("user.dir") + File.separator + "data");
         if (!folder.exists()) {
             folder.mkdir();
         }
@@ -294,7 +316,7 @@ public class FileManager {
      * @throws IOException if backup fails
      */
     public static String backupAdditionalFields(java.util.Map<Integer, AdditionalFields> fieldsMap) throws IOException {
-        File backupsDir = new File("data/backups");
+        File backupsDir = new File(System.getProperty("user.dir") + File.separator + "data" + File.separator + "backups");
         if (!backupsDir.exists()) {
             if (!backupsDir.mkdirs()) {
                 throw new IOException("Could not create backups directory");
