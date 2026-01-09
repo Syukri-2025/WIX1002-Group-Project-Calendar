@@ -2,10 +2,13 @@ import java.util.ArrayList;
 import java.util.List;
 import java.time.LocalDateTime;
 import java.time.Duration;
+import java.time.format.DateTimeFormatter;
 import java.io.IOException;
 import java.util.concurrent.ScheduledExecutorService;
 import java.util.concurrent.Executors;
 import java.util.concurrent.TimeUnit;
+import java.util.concurrent.ScheduledFuture;
+import javax.swing.*;
 
 public class SchedulerApp {
 
@@ -19,6 +22,60 @@ public class SchedulerApp {
     // This pulls the data from the CSV file into your list when the app starts
     this.events = new ArrayList<>(FileManager.loadEvents());
     this.additionalFieldsMap = FileManager.loadAdditionalFields();
+
+    // Load persisted notified reminders and prune IDs not belonging to current events
+    java.util.Set<Integer> loaded = FileManager.loadNotifiedReminders();
+    if (loaded != null) {
+        notifiedReminders.addAll(loaded);
+        java.util.Set<Integer> currentIds = new java.util.HashSet<>();
+        for (Event ev : this.events) currentIds.add(ev.getId());
+        notifiedReminders.retainAll(currentIds);
+    }
+
+    // Expire old notified reminders (older than 7 days based on event end)
+    expireNotifiedReminders(7);
+
+    // Detect missed reminders (reminder time in past but event start within last 1 day)
+    java.util.List<Event> missed = new java.util.ArrayList<>();
+    LocalDateTime now = LocalDateTime.now();
+    for (Event ev : this.events) {
+        if (ev.getReminderMinutes() <= 0) continue;
+        if (notifiedReminders.contains(ev.getId())) continue;
+        LocalDateTime reminderTime = ev.getStart().minusMinutes(ev.getReminderMinutes());
+        if (reminderTime.isBefore(now) && ev.getStart().isAfter(now.minusDays(1))) {
+            missed.add(ev);
+        }
+    }
+
+    if (!missed.isEmpty()) {
+        SwingUtilities.invokeLater(() -> {
+            StringBuilder sb = new StringBuilder();
+            sb.append("Missed reminders detected:\n\n");
+            for (Event me : missed) {
+                sb.append("• ").append(me.getTitle()).append(" at ")
+                  .append(me.getStart().format(DateTimeFormatter.ofPattern("dd/MM/yyyy HH:mm"))).append("\n");
+            }
+            String[] options = {"Notify now", "Mark as read", "Ignore"};
+            int choice = JOptionPane.showOptionDialog(null, sb.toString(), "Missed Reminders",
+                    JOptionPane.DEFAULT_OPTION, JOptionPane.WARNING_MESSAGE, null, options, options[0]);
+
+            if (choice == 0) {
+                // Notify now: spawn background thread to show individual dialogs
+                new Thread(() -> {
+                    for (Event me : missed) {
+                        triggerReminderForEvent(me, Duration.between(LocalDateTime.now(), me.getStart()).toMinutes());
+                    }
+                }).start();
+            } else if (choice == 1) {
+                for (Event me : missed) {
+                    notifiedReminders.add(me.getId());
+                }
+                FileManager.saveNotifiedReminders(notifiedReminders);
+            } else {
+                // ignore
+            }
+        });
+    }
 }
     //--> addEvent method
    public void addEvent(Event adding){
@@ -98,7 +155,19 @@ public void checkReminders() {
         
         // Check if event is within the reminder window
         if (e.getReminderMinutes() > 0 && mins >= 0 && mins <= e.getReminderMinutes()) {
-            System.out.println("Alert: You have an event in " + mins + " minutes: " + e.getTitle());
+            // Already notified? skip
+            if (notifiedReminders.contains(e.getId())) continue;
+            notifiedReminders.add(e.getId());
+            FileManager.saveNotifiedReminders(notifiedReminders);
+
+            String message = String.format("Reminder: \"%s\" starts in %d minute(s) at %s",
+                e.getTitle(), mins, e.getStart().format(DateTimeFormatter.ofPattern("dd/MM/yyyy HH:mm")));
+
+            // Log and show popup on EDT
+            System.out.println(message);
+            javax.swing.SwingUtilities.invokeLater(() -> {
+                JOptionPane.showMessageDialog(null, message, "Event Reminder", JOptionPane.INFORMATION_MESSAGE);
+            });
         }
     }
 }
@@ -133,6 +202,126 @@ public void showStatistics() {
 
     // -------- Backup APIs --------
     private ScheduledExecutorService backupScheduler = null;
+
+    // -------- Reminder Service --------
+    private ScheduledExecutorService reminderScheduler = null;
+    private ScheduledExecutorService oneShotScheduler = null; // for snoozes / one-shot tasks
+    private java.util.Set<Integer> notifiedReminders = java.util.concurrent.ConcurrentHashMap.newKeySet();
+    private java.util.Map<Integer, ScheduledFuture<?>> snoozeTasks = new java.util.concurrent.ConcurrentHashMap<>();
+
+    /**
+     * Start reminder service to check for upcoming reminders every N seconds.
+     * @param intervalSeconds interval in seconds (e.g., 60)
+     */
+    public void startReminderService(long intervalSeconds) {
+        if (reminderScheduler != null && !reminderScheduler.isShutdown()) return;
+        reminderScheduler = Executors.newSingleThreadScheduledExecutor();
+        reminderScheduler.scheduleAtFixedRate(() -> checkReminders(), 0, Math.max(1, intervalSeconds), TimeUnit.SECONDS);
+
+        if (oneShotScheduler == null || oneShotScheduler.isShutdown()) {
+            oneShotScheduler = Executors.newSingleThreadScheduledExecutor();
+        }
+    }
+
+    public void stopReminderService() {
+        if (reminderScheduler != null) {
+            reminderScheduler.shutdownNow();
+            reminderScheduler = null;
+        }
+        if (oneShotScheduler != null) {
+            oneShotScheduler.shutdownNow();
+            oneShotScheduler = null;
+        }
+        // cancel any pending snooze tasks
+        for (ScheduledFuture<?> f : snoozeTasks.values()) {
+            if (f != null) f.cancel(true);
+        }
+        snoozeTasks.clear();
+    }
+
+    /**
+     * Schedule a snooze for an event (cancels existing snooze for that event if present)
+     */
+    public void scheduleSnooze(int eventId, long minutes) {
+        if (minutes <= 0) minutes = 5; // default
+        // cancel existing
+        cancelSnooze(eventId);
+        if (oneShotScheduler == null || oneShotScheduler.isShutdown()) {
+            oneShotScheduler = Executors.newSingleThreadScheduledExecutor();
+        }
+        ScheduledFuture<?> future = oneShotScheduler.schedule(() -> {
+            Event ev = null;
+            for (Event e : events) if (e.getId() == eventId) ev = e;
+            if (ev != null) {
+                triggerReminderForEvent(ev, Duration.between(LocalDateTime.now(), ev.getStart()).toMinutes());
+            }
+        }, minutes, TimeUnit.MINUTES);
+        snoozeTasks.put(eventId, future);
+    }
+
+    public void cancelSnooze(int eventId) {
+        ScheduledFuture<?> f = snoozeTasks.remove(eventId);
+        if (f != null) f.cancel(true);
+    }
+
+    private void triggerReminderForEvent(Event e, long mins) {
+        // If already notified skip
+        if (notifiedReminders.contains(e.getId())) return;
+
+        ReminderDialog.Result res = performReminderDialog(e, mins);
+        if (res == null) return;
+
+        if (res.action == ReminderDialog.Action.DISMISS) {
+            notifiedReminders.add(e.getId());
+            FileManager.saveNotifiedReminders(notifiedReminders);
+        } else if (res.action == ReminderDialog.Action.SNOOZE) {
+            scheduleSnooze(e.getId(), res.minutes);
+        }
+    }
+
+    private ReminderDialog.Result performReminderDialog(Event e, long mins) {
+        final ReminderDialog.Result[] holder = new ReminderDialog.Result[1];
+        Runnable r = () -> holder[0] = ReminderDialog.show(e, mins);
+        try {
+            if (SwingUtilities.isEventDispatchThread()) {
+                r.run();
+            } else {
+                SwingUtilities.invokeAndWait(r);
+            }
+        } catch (Exception ex) {
+            System.out.println("Error showing reminder dialog: " + ex.getMessage());
+            return null;
+        }
+        return holder[0];
+    }
+
+    /**
+     * Clear persisted notified reminders (useful for debugging or resetting state)
+     */
+    public void clearNotifiedReminders() {
+        notifiedReminders.clear();
+        FileManager.saveNotifiedReminders(notifiedReminders);
+    }
+
+    /**
+     * Remove notified reminder IDs for events whose end date is older than given days
+     */
+    public void expireNotifiedReminders(int days) {
+        LocalDateTime threshold = LocalDateTime.now().minusDays(days);
+        java.util.Set<Integer> toRemove = new java.util.HashSet<>();
+        for (Integer id : notifiedReminders) {
+            for (Event e : events) {
+                if (e.getId() == id && e.getEnd() != null && e.getEnd().isBefore(threshold)) {
+                    toRemove.add(id);
+                    break;
+                }
+            }
+        }
+        if (!toRemove.isEmpty()) {
+            notifiedReminders.removeAll(toRemove);
+            FileManager.saveNotifiedReminders(notifiedReminders);
+        }
+    }
 
     /**
      * Create a one-off backup now and return the backup path or null if failed

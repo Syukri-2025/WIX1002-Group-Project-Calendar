@@ -34,6 +34,7 @@ public class CalendarView {
         JButton analyticsButton = new JButton("Analytics");
         JButton backupButton = new JButton("Backup Events");
         JButton restoreButton = new JButton("Restore Backup");
+        JButton clearNotifiedButton = new JButton("Clear Notified Reminders");
 
         addButton.addActionListener(adding -> showAddEventForm());
         updateButton.addActionListener(adding -> showUpdateEventForm());
@@ -45,6 +46,13 @@ public class CalendarView {
         analyticsButton.addActionListener(adding -> showAnalytics());
         backupButton.addActionListener(adding -> performBackup());
         restoreButton.addActionListener(adding -> performRestore());
+        clearNotifiedButton.addActionListener(a -> {
+            int confirm = JOptionPane.showConfirmDialog(null, "Clear all persisted notified reminders? This cannot be undone.", "Confirm Clear", JOptionPane.YES_NO_OPTION);
+            if (confirm == JOptionPane.YES_OPTION) {
+                app.clearNotifiedReminders();
+                JOptionPane.showMessageDialog(null, "Cleared persisted notified reminders.", "Cleared", JOptionPane.INFORMATION_MESSAGE);
+            }
+        });
 
         JPanel panel = new JPanel();
         panel.add(addButton);
@@ -57,10 +65,17 @@ public class CalendarView {
         panel.add(analyticsButton);
         panel.add(backupButton);
         panel.add(restoreButton);
+        panel.add(clearNotifiedButton);
 
         frame.add(panel);
         frame.setSize(900, 200);
         frame.setDefaultCloseOperation(JFrame.EXIT_ON_CLOSE);
+        frame.addWindowListener(new java.awt.event.WindowAdapter() {
+            public void windowClosing(java.awt.event.WindowEvent e) {
+                app.stopReminderService();
+                app.stopBackupService();
+            }
+        });
         frame.setVisible(true);
     }
 
