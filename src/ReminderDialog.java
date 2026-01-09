@@ -1,5 +1,4 @@
 import javax.swing.*;
-import java.awt.*;
 
 public class ReminderDialog {
     public enum Action { DISMISS, SNOOZE }
