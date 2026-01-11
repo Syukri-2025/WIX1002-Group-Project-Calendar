@@ -412,10 +412,17 @@ public class CalendarView {
                 if (newEvent.getRecurrence() != null && newEvent.getRecurrence().isRecurring()) {
                     java.util.List<Event> recurringEvents = RecurrenceLogic.generateRecurringEvents(newEvent);
                     // Assign sequential IDs to each recurring event occurrence
+                    int firstEventId = 0;
                     for (Event recurEvent : recurringEvents) {
-                        recurEvent.setId(generateNextId()); // Assign proper ID
+                        int eventId = generateNextId();
+                        recurEvent.setId(eventId); // Assign proper ID
+                        if (firstEventId == 0) {
+                            firstEventId = eventId; // Save the first event ID for recurrence data
+                        }
                         app.addEvent(recurEvent);
                     }
+                    // Save recurrence data to recurrent.csv
+                    FileManager.saveRecurrence(firstEventId, newEvent.getRecurrence());
                     JOptionPane.showMessageDialog(null,
                             "Recurring event created! Generated " + recurringEvents.size() + " occurrences.");
                 } else {

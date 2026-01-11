@@ -376,6 +376,140 @@ public class FileManager {
         return fieldsMap;
     }
 
+    // ================ RECURRENCE DATA MANAGEMENT ================
+    private static final String RECURRENT_FILE_PATH = System.getProperty("user.dir") + File.separator + "data" + File.separator + "recurrent.csv";
+    
+    /**
+     * Save recurrence data to recurrent.csv
+     * @param eventId The event ID
+     * @param recurrence The recurrence object
+     */
+    public static void saveRecurrence(int eventId, Recurrence recurrence) {
+        if (recurrence == null || !recurrence.isRecurring()) {
+            return; // Don't save non-recurring events
+        }
+        
+        // Load existing recurrence data
+        List<String> lines = new ArrayList<>();
+        File file = new File(RECURRENT_FILE_PATH);
+        
+        // Read existing data
+        if (file.exists()) {
+            try (BufferedReader reader = new BufferedReader(new FileReader(file))) {
+                String line;
+                while ((line = reader.readLine()) != null) {
+                    lines.add(line);
+                }
+            } catch (IOException e) {
+                System.out.println("Error reading recurrent.csv: " + e.getMessage());
+            }
+        } else {
+            // Add header if file doesn't exist
+            lines.add("eventId,recurrentInterval,recurrentTimes,recurrentEndDate");
+        }
+        
+        // Convert recurrence to CSV format
+        String interval = "";
+        if (recurrence.getFrequency() == Recurrence.Frequency.DAILY) {
+            interval = recurrence.getInterval() + "d";
+        } else if (recurrence.getFrequency() == Recurrence.Frequency.WEEKLY) {
+            interval = recurrence.getInterval() + "w";
+        } else if (recurrence.getFrequency() == Recurrence.Frequency.MONTHLY) {
+            interval = recurrence.getInterval() + "m";
+        }
+        
+        String endDateStr = "0";
+        if (recurrence.getEndDate() != null) {
+            endDateStr = recurrence.getEndDate().format(DateTimeFormatter.ofPattern("yyyy-MM-dd"));
+        }
+        
+        String csvLine = String.format("%d,%s,%d,%s", 
+            eventId, 
+            interval, 
+            0, // recurrentTimes - we use 0 when using endDate
+            endDateStr
+        );
+        
+        lines.add(csvLine);
+        
+        // Write back to file
+        try (BufferedWriter writer = new BufferedWriter(new FileWriter(file))) {
+            for (String line : lines) {
+                writer.write(line);
+                writer.newLine();
+            }
+            System.out.println("Recurrence data saved for event ID: " + eventId);
+        } catch (IOException e) {
+            System.out.println("Error saving recurrence: " + e.getMessage());
+        }
+    }
+    
+    /**
+     * Load recurrence data from recurrent.csv
+     * @return Map of eventId to Recurrence objects
+     */
+    public static java.util.Map<Integer, Recurrence> loadRecurrences() {
+        java.util.Map<Integer, Recurrence> recurrenceMap = new java.util.HashMap<>();
+        File file = new File(RECURRENT_FILE_PATH);
+        
+        if (!file.exists()) {
+            System.out.println("No recurrent.csv file found.");
+            return recurrenceMap;
+        }
+        
+        try (BufferedReader reader = new BufferedReader(new FileReader(file))) {
+            String currentLine;
+            boolean firstLine = true;
+            
+            while ((currentLine = reader.readLine()) != null) {
+                if (currentLine.trim().isEmpty()) continue;
+                
+                // Skip header line
+                if (firstLine && currentLine.startsWith("eventId")) {
+                    firstLine = false;
+                    continue;
+                }
+                firstLine = false;
+                
+                String[] parts = currentLine.split(",");
+                if (parts.length >= 4) {
+                    try {
+                        int eventId = Integer.parseInt(parts[0].trim());
+                        String intervalStr = parts[1].trim(); // e.g., "1d", "2w"
+                        // int recurrentTimes = Integer.parseInt(parts[2].trim()); // Not used for now
+                        String endDateStr = parts[3].trim();
+                        
+                        // Parse interval
+                        char unit = intervalStr.charAt(intervalStr.length() - 1);
+                        int intervalValue = Integer.parseInt(intervalStr.substring(0, intervalStr.length() - 1));
+                        
+                        Recurrence.Frequency frequency = null;
+                        if (unit == 'd') frequency = Recurrence.Frequency.DAILY;
+                        else if (unit == 'w') frequency = Recurrence.Frequency.WEEKLY;
+                        else if (unit == 'm') frequency = Recurrence.Frequency.MONTHLY;
+                        
+                        // Parse end date
+                        LocalDateTime endDate = null;
+                        if (!endDateStr.equals("0")) {
+                            endDate = LocalDateTime.parse(endDateStr + "T00:00:00", DATE_FORMAT);
+                        }
+                        
+                        if (frequency != null) {
+                            Recurrence recurrence = new Recurrence(frequency, intervalValue, endDate);
+                            recurrenceMap.put(eventId, recurrence);
+                        }
+                    } catch (Exception e) {
+                        System.out.println("Error parsing recurrence line: " + currentLine);
+                    }
+                }
+            }
+        } catch (Exception e) {
+            System.out.println("Error loading recurrences: " + e.getMessage());
+        }
+        
+        return recurrenceMap;
+    }
+
     // ================ Notified reminders persistence ================
     private static final String NOTIFIED_FILE_PATH = "data/notified_reminders.txt";
 
